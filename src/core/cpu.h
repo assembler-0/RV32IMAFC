@@ -43,6 +43,16 @@ typedef struct {
     uint32_t reserved_address;    // For LR/SC
     int reservation_set;          // For LR/SC
 } cpu_t;
+
+typedef struct {
+    uint32_t opcode;
+    uint32_t rd;
+    uint32_t rs1;
+    uint32_t rs2;
+    uint32_t imm;
+    uint32_t inst_type;
+} instruction_t;
+
 // CSR Addresses
 #define CSR_MSTATUS     0x300
 #define CSR_MISA        0x301
@@ -193,6 +203,42 @@ typedef enum {
     INST_FLW,
     INST_FSW,
     INST_FLD,
+    // RV32C Compressed Instructions
+    INST_C_ADDI4SPN,
+    INST_C_FLD,
+    INST_C_LW,
+    INST_C_FLW,
+    INST_C_FSD,
+    INST_C_SW,
+    INST_C_FSW,
+    INST_C_NOP,
+    INST_C_ADDI,
+    INST_C_JAL,
+    INST_C_LI,
+    INST_C_ADDI16SP,
+    INST_C_LUI,
+    INST_C_SRLI,
+    INST_C_SRAI,
+    INST_C_ANDI,
+    INST_C_SUB,
+    INST_C_XOR,
+    INST_C_OR,
+    INST_C_AND,
+    INST_C_J,
+    INST_C_BEQZ,
+    INST_C_BNEZ,
+    INST_C_SLLI,
+    INST_C_FLDSP,
+    INST_C_LWSP,
+    INST_C_FLWSP,
+    INST_C_JR,
+    INST_C_MV,
+    INST_C_EBREAK,
+    INST_C_JALR,
+    INST_C_ADD,
+    INST_C_FSDSP,
+    INST_C_SWSP,
+    INST_C_FSWSP,
     //Unknown
     INST_UNKNOWN
 } inst_type_t;
@@ -200,5 +246,6 @@ typedef enum {
 
 void cpu_init(cpu_t* cpu);
 void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction);
+void cpu_execute_decoded(cpu_t* cpu, memory_t* memory, instruction_t* decoded, uint32_t instruction);
 
 #endif // CPU_H

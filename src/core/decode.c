@@ -440,3 +440,180 @@ void decode_instruction(uint32_t instruction, instruction_t* decoded_inst) {
         decoded_inst->inst_type = INST_UNKNOWN;
     }
 }
+
+// Expand 16-bit compressed instruction to 32-bit
+uint32_t expand_compressed(uint16_t c_inst) {
+    uint32_t opcode = c_inst & 0x3;
+    uint32_t funct3 = (c_inst >> 13) & 0x7;
+    
+    switch (opcode) {
+        case 0x0: // C0
+            switch (funct3) {
+                case 0x0: { // C.ADDI4SPN
+                    uint32_t rd = ((c_inst >> 2) & 0x7) + 8;
+                    uint32_t imm = ((c_inst >> 7) & 0x30) | ((c_inst >> 1) & 0x3C0) | ((c_inst >> 4) & 0x4) | ((c_inst >> 2) & 0x8);
+                    if (imm == 0) return 0; // Reserved
+                    return (imm << 20) | (2 << 15) | (0 << 12) | (rd << 7) | 0x13; // addi rd, x2, imm
+                }
+                case 0x1: { // C.FLD
+                    uint32_t rd = ((c_inst >> 2) & 0x7) + 8;
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8;
+                    uint32_t imm = ((c_inst >> 7) & 0x38) | ((c_inst << 1) & 0xC0);
+                    return (imm << 20) | (rs1 << 15) | (3 << 12) | (rd << 7) | 0x07; // fld rd, imm(rs1)
+                }
+                case 0x2: { // C.LW
+                    uint32_t rd = ((c_inst >> 2) & 0x7) + 8;
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8;
+                    uint32_t imm = ((c_inst >> 3) & 0x4) | ((c_inst >> 6) & 0x40) | ((c_inst >> 6) & 0x38);
+                    return (imm << 20) | (rs1 << 15) | (2 << 12) | (rd << 7) | 0x03; // lw rd, imm(rs1)
+                }
+                case 0x3: { // C.FLW
+                    uint32_t rd = ((c_inst >> 2) & 0x7) + 8; // f8-f15
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8; // x8-x15
+                    uint32_t imm = ((c_inst >> 3) & 0x4) | ((c_inst >> 6) & 0x40) | ((c_inst >> 6) & 0x38);
+                    return (imm << 20) | (rs1 << 15) | (2 << 12) | (rd << 7) | 0x07; // flw frd, imm(rs1)
+                }
+                case 0x6: { // C.SW
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8;
+                    uint32_t rs2 = ((c_inst >> 2) & 0x7) + 8;
+                    uint32_t imm = ((c_inst >> 3) & 0x4) | ((c_inst >> 6) & 0x40) | ((c_inst >> 6) & 0x38);
+                    return ((imm >> 5) << 25) | (rs2 << 20) | (rs1 << 15) | (2 << 12) | ((imm & 0x1F) << 7) | 0x23; // sw rs2, imm(rs1)
+                }
+                case 0x5: { // C.FSD
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8;
+                    uint32_t rs2 = ((c_inst >> 2) & 0x7) + 8;
+                    uint32_t imm = ((c_inst >> 7) & 0x38) | ((c_inst << 1) & 0xC0);
+                    return (((imm >> 5) & 0x7F) << 25) | (rs2 << 20) | (rs1 << 15) | (3 << 12) | ((imm & 0x1F) << 7) | 0x27; // fsd rs2, imm(rs1)
+                }
+                case 0x7: { // C.FSW
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8; // x8-x15
+                    uint32_t rs2 = ((c_inst >> 2) & 0x7) + 8; // f8-f15
+                    uint32_t imm = ((c_inst >> 3) & 0x4) | ((c_inst >> 6) & 0x40) | ((c_inst >> 6) & 0x38);
+                    return ((imm >> 5) << 25) | (rs2 << 20) | (rs1 << 15) | (2 << 12) | ((imm & 0x1F) << 7) | 0x27; // fsw frs2, imm(rs1)
+                }
+            }
+            break;
+        case 0x1: // C1
+            switch (funct3) {
+                case 0x0: { // C.ADDI
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    int32_t imm = ((c_inst >> 2) & 0x1F) | (((c_inst >> 12) & 1) ? 0xFFFFFFE0 : 0);
+                    return (imm << 20) | (rd << 15) | (0 << 12) | (rd << 7) | 0x13; // addi rd, rd, imm
+                }
+                case 0x1: { // C.JAL
+                    int32_t imm = ((c_inst >> 1) & 0x800) | ((c_inst << 2) & 0x400) | ((c_inst >> 1) & 0x300) | ((c_inst << 1) & 0x80) | ((c_inst >> 1) & 0x40) | ((c_inst << 3) & 0x20) | ((c_inst >> 7) & 0x10) | ((c_inst >> 2) & 0xE);
+                    if (c_inst & 0x1000) imm |= 0xFFFFF000;
+                    return (((imm >> 20) & 1) << 31) | (((imm >> 1) & 0x3FF) << 21) | (((imm >> 11) & 1) << 20) | (((imm >> 12) & 0xFF) << 12) | (1 << 7) | 0x6F; // jal x1, imm
+                }
+                case 0x2: { // C.LI
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    int32_t imm = ((c_inst >> 2) & 0x1F) | (((c_inst >> 12) & 1) ? 0xFFFFFFE0 : 0);
+                    return (imm << 20) | (0 << 15) | (0 << 12) | (rd << 7) | 0x13; // addi rd, x0, imm
+                }
+                case 0x3: { // C.ADDI16SP or C.LUI
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    if (rd == 2) { // C.ADDI16SP
+                        int32_t imm = ((c_inst >> 3) & 0x200) | ((c_inst >> 2) & 0x10) | ((c_inst << 1) & 0x40) | ((c_inst << 4) & 0x180) | ((c_inst << 3) & 0x20);
+                        if (c_inst & 0x1000) imm |= 0xFFFFFE00;
+                        return (imm << 20) | (2 << 15) | (0 << 12) | (2 << 7) | 0x13; // addi x2, x2, imm
+                    } else { // C.LUI
+                        int32_t imm = ((c_inst >> 2) & 0x1F) | (((c_inst >> 12) & 1) ? 0xFFFFFFE0 : 0);
+                        return (imm << 12) | (rd << 7) | 0x37; // lui rd, imm
+                    }
+                }
+                case 0x4: { // C.SRLI, C.SRAI, C.ANDI, C.SUB, C.XOR, C.OR, C.AND
+                    uint32_t rd = ((c_inst >> 7) & 0x7) + 8;
+                    uint32_t funct2 = (c_inst >> 10) & 0x3;
+                    if (funct2 == 0x0) { // C.SRLI
+                        uint32_t shamt = ((c_inst >> 2) & 0x1F) | (((c_inst >> 12) & 1) << 5);
+                        return (shamt << 20) | (rd << 15) | (5 << 12) | (rd << 7) | 0x13; // srli rd, rd, shamt
+                    } else if (funct2 == 0x1) { // C.SRAI
+                        uint32_t shamt = ((c_inst >> 2) & 0x1F) | (((c_inst >> 12) & 1) << 5);
+                        return (0x20 << 25) | (shamt << 20) | (rd << 15) | (5 << 12) | (rd << 7) | 0x13; // srai rd, rd, shamt
+                    } else if (funct2 == 0x2) { // C.ANDI
+                        int32_t imm = ((c_inst >> 2) & 0x1F) | (((c_inst >> 12) & 1) ? 0xFFFFFFE0 : 0);
+                        return (imm << 20) | (rd << 15) | (7 << 12) | (rd << 7) | 0x13; // andi rd, rd, imm
+                    } else { // C.SUB, C.XOR, C.OR, C.AND
+                        uint32_t rs2 = ((c_inst >> 2) & 0x7) + 8;
+                        uint32_t funct6 = (c_inst >> 10) & 0x3F;
+                        if (funct6 == 0x23) return (0x20 << 25) | (rs2 << 20) | (rd << 15) | (0 << 12) | (rd << 7) | 0x33; // sub
+                        else if (funct6 == 0x27) return (rs2 << 20) | (rd << 15) | (4 << 12) | (rd << 7) | 0x33; // xor
+                        else if (funct6 == 0x2B) return (rs2 << 20) | (rd << 15) | (6 << 12) | (rd << 7) | 0x33; // or
+                        else if (funct6 == 0x2F) return (rs2 << 20) | (rd << 15) | (7 << 12) | (rd << 7) | 0x33; // and
+                    }
+                }
+                case 0x5: { // C.J
+                    int32_t imm = ((c_inst >> 1) & 0x800) | ((c_inst << 2) & 0x400) | ((c_inst >> 1) & 0x300) | ((c_inst << 1) & 0x80) | ((c_inst >> 1) & 0x40) | ((c_inst << 3) & 0x20) | ((c_inst >> 7) & 0x10) | ((c_inst >> 2) & 0xE);
+                    if (c_inst & 0x1000) imm |= 0xFFFFF000;
+                    return (((imm >> 20) & 1) << 31) | (((imm >> 1) & 0x3FF) << 21) | (((imm >> 11) & 1) << 20) | (((imm >> 12) & 0xFF) << 12) | (0 << 7) | 0x6F; // jal x0, imm
+                }
+                case 0x6: { // C.BEQZ
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8;
+                    int32_t imm = ((c_inst >> 4) & 0x100) | ((c_inst >> 7) & 0x18) | ((c_inst << 1) & 0xC0) | ((c_inst >> 2) & 0x6) | ((c_inst << 3) & 0x20);
+                    if (c_inst & 0x1000) imm |= 0xFFFFFE00;
+                    return (((imm >> 12) & 1) << 31) | (((imm >> 5) & 0x3F) << 25) | (0 << 20) | (rs1 << 15) | (0 << 12) | (((imm >> 1) & 0xF) << 8) | (((imm >> 11) & 1) << 7) | 0x63; // beq rs1, x0, imm
+                }
+                case 0x7: { // C.BNEZ
+                    uint32_t rs1 = ((c_inst >> 7) & 0x7) + 8;
+                    int32_t imm = ((c_inst >> 4) & 0x100) | ((c_inst >> 7) & 0x18) | ((c_inst << 1) & 0xC0) | ((c_inst >> 2) & 0x6) | ((c_inst << 3) & 0x20);
+                    if (c_inst & 0x1000) imm |= 0xFFFFFE00;
+                    return (((imm >> 12) & 1) << 31) | (((imm >> 5) & 0x3F) << 25) | (0 << 20) | (rs1 << 15) | (1 << 12) | (((imm >> 1) & 0xF) << 8) | (((imm >> 11) & 1) << 7) | 0x63; // bne rs1, x0, imm
+                }
+            }
+            break;
+        case 0x2: // C2
+            switch (funct3) {
+                case 0x0: { // C.SLLI
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    uint32_t shamt = ((c_inst >> 2) & 0x1F) | (((c_inst >> 12) & 1) << 5);
+                    if (rd == 0) return 0; // Reserved
+                    return (shamt << 20) | (rd << 15) | (1 << 12) | (rd << 7) | 0x13; // slli rd, rd, shamt
+                }
+                case 0x1: { // C.FLDSP
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    uint32_t imm = ((c_inst >> 2) & 0x1C) | ((c_inst >> 7) & 0x20) | ((c_inst << 3) & 0x1C0);
+                    return (imm << 20) | (2 << 15) | (3 << 12) | (rd << 7) | 0x07; // fld rd, imm(x2)
+                }
+                case 0x2: { // C.LWSP
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    uint32_t imm = ((c_inst >> 2) & 0x1C) | ((c_inst >> 7) & 0x20) | ((c_inst >> 2) & 0xC0);
+                    if (rd == 0) return 0; // Reserved
+                    return (imm << 20) | (2 << 15) | (2 << 12) | (rd << 7) | 0x03; // lw rd, imm(x2)
+                }
+                case 0x3: { // C.FLWSP
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    uint32_t imm = ((c_inst >> 2) & 0x1C) | ((c_inst >> 7) & 0x20) | ((c_inst >> 2) & 0xC0);
+                    return (imm << 20) | (2 << 15) | (2 << 12) | (rd << 7) | 0x07; // flw rd, imm(x2)
+                }
+                case 0x4: { // C.JR, C.MV, C.EBREAK, C.JALR, C.ADD
+                    uint32_t rd = (c_inst >> 7) & 0x1F;
+                    uint32_t rs2 = (c_inst >> 2) & 0x1F;
+                    if ((c_inst & 0x1000) == 0) {
+                        if (rs2 == 0) return (rd << 15) | (0 << 12) | (0 << 7) | 0x67; // jalr x0, 0(rd)
+                        else return (rs2 << 20) | (0 << 15) | (0 << 12) | (rd << 7) | 0x33; // add rd, x0, rs2
+                    } else {
+                        if (rd == 0 && rs2 == 0) return 0x00100073; // ebreak
+                        else if (rs2 == 0) return (rd << 15) | (0 << 12) | (1 << 7) | 0x67; // jalr x1, 0(rd)
+                        else return (rs2 << 20) | (rd << 15) | (0 << 12) | (rd << 7) | 0x33; // add rd, rd, rs2
+                    }
+                }
+                case 0x5: { // C.FSDSP
+                    uint32_t rs2 = (c_inst >> 2) & 0x1F;
+                    uint32_t imm = ((c_inst >> 7) & 0x38) | ((c_inst >> 1) & 0x1C0);
+                    return (((imm >> 5) & 0x7F) << 25) | (rs2 << 20) | (2 << 15) | (3 << 12) | ((imm & 0x1F) << 7) | 0x27; // fsd rs2, imm(x2)
+                }
+                case 0x6: { // C.SWSP
+                    uint32_t rs2 = (c_inst >> 2) & 0x1F;
+                    uint32_t imm = ((c_inst >> 7) & 0x3C) | ((c_inst >> 1) & 0xC0);
+                    return (((imm >> 5) & 0x7F) << 25) | (rs2 << 20) | (2 << 15) | (2 << 12) | ((imm & 0x1F) << 7) | 0x23; // sw rs2, imm(x2)
+                }
+                case 0x7: { // C.FSWSP
+                    uint32_t rs2 = (c_inst >> 2) & 0x1F;
+                    uint32_t imm = ((c_inst >> 7) & 0x3C) | ((c_inst >> 1) & 0xC0);
+                    return (((imm >> 5) & 0x7F) << 25) | (rs2 << 20) | (2 << 15) | (2 << 12) | ((imm & 0x1F) << 7) | 0x27; // fsw rs2, imm(x2)
+                }
+            }
+            break;
+    }
+    return 0; // Invalid compressed instruction
+}
