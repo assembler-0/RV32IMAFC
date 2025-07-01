@@ -1,0 +1,40 @@
+# Basic arithmetic and logic
+0x02a00093 # addi x1, x0, 42 -> x1 = 42
+0x00108133 # add x2, x1, x1 -> x2 = 84
+0x401101b3 # sub x3, x2, x1 -> x3 = 42
+0x00209213 # slli x4, x1, 2 -> x4 = 168
+0x022082b3 # mul x5, x1, x2 -> x5 = 3528
+0x0212c333 # div x6, x5, x1 -> x6 = 84
+0x00f0f393 # andi x7, x1, 15 -> x7 = 10
+0x0010e413 # ori x8, x1, 1 -> x8 = 43
+0x0070c493 # xori x9, x1, 7 -> x9 = 45
+0x0320a513 # slti x10, x1, 50 -> x10 = 1
+0x01e0b593 # sltiu x11, x1, 30 -> x11 = 0
+0x12345637 # lui x12, 0x12345 -> x12 = 0x12345000
+0x01000697 # auipc x13, 0x10000 -> x13 = pc + 0x10000
+
+# Store and Branch tests
+0x00100793 # addi x15, x0, 1
+0x00000013 # nop
+0x00f7a023 # sw x15, 0(x15)
+0x00000013 # nop
+0x00100793 # addi x15, x0, 1
+0x00000013 # nop
+0x00f78863 # beq x15, x15, 16 # Branch taken
+0x00000013 # nop
+0x00000013 # nop
+0x00000013 # nop
+0x00100793 # addi x15, x0, 1
+0x00f09863 # bne x15, x0, 16 # Branch taken
+0x00000013 # nop
+0x00000013 # nop
+0x00000013 # nop
+
+# JAL and JALR tests
+0x018000ef # jal x1, 24
+0x00000013 # nop
+0x00000013 # nop
+0x00000013 # nop
+0x00000013 # nop
+0x00000013 # nop
+0x000081e7 # jalr x3, x1, 0

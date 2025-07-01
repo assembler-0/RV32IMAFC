@@ -1,0 +1,6 @@
+# Compiled files
+*.o
+riscv
+
+# IDE files
+.idea/
