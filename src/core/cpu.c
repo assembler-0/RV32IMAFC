@@ -2,16 +2,21 @@
 #include "decode.h"
 #include "memory.h"
 #include <stdio.h>
+#include <math.h>
 
 void cpu_init(cpu_t* cpu) {
     for (int i = 0; i < NUM_REGISTERS; i++) {
         cpu->regs[i] = 0;
+        cpu->fregs[i] = 0.0f;
+        cpu->dfregs[i] = 0.0;
     }
     for (int i = 0; i < 4096; i++) {
         cpu->csrs[i] = 0;
     }
     cpu->pc = 0;
     cpu->privilege = MACHINE_MODE;
+    cpu->reserved_address = 0;
+    cpu->reservation_set = 0;
     cpu->reserved_address = 0;
     cpu->reservation_set = 0;
 
@@ -157,7 +162,7 @@ void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
             break;
         case INST_SLTIU:
             if (decoded.rd != 0) {
-                cpu->regs[decoded.rd] = cpu->regs[decoded.rs1] < (uint32_t)decoded.imm ? 1 : 0;
+                cpu->regs[decoded.rd] = cpu->regs[decoded.rs1] < decoded.imm ? 1 : 0;
             }
             break;
         case INST_XORI:
@@ -470,11 +475,227 @@ void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
             cpu->regs[decoded.rd] = temp;
             break;
         }
+
+        // Floating-Point Instructions
+        case INST_FLW:
+            if (decoded.rd != 0) {
+                uint32_t addr = cpu->regs[decoded.rs1] + decoded.imm;
+                uint32_t raw = memory_read_word(memory, addr);
+                cpu->fregs[decoded.rd] = *(float*)&raw;
+            }
+            break;
+        case INST_FSW: {
+            uint32_t addr = cpu->regs[decoded.rs1] + decoded.imm;
+            uint32_t raw = *(uint32_t*)&cpu->fregs[decoded.rs2];
+            memory_write_word(memory, addr, raw);
+            break;
+        }
+
+        case INST_FADD_S:
+            cpu->fregs[decoded.rd] = cpu->fregs[decoded.rs1] + cpu->fregs[decoded.rs2];
+            break;
+        case INST_FSUB_S:
+            cpu->fregs[decoded.rd] = cpu->fregs[decoded.rs1] - cpu->fregs[decoded.rs2];
+            break;
+        case INST_FMUL_S:
+            cpu->fregs[decoded.rd] = cpu->fregs[decoded.rs1] * cpu->fregs[decoded.rs2];
+            break;
+        case INST_FDIV_S:
+            cpu->fregs[decoded.rd] = cpu->fregs[decoded.rs1] / cpu->fregs[decoded.rs2];
+            break;
+        case INST_FSQRT_S:
+            cpu->fregs[decoded.rd] = sqrtf(cpu->fregs[decoded.rs1]);
+            break;
+        case INST_FMIN_S:
+            cpu->fregs[decoded.rd] = fminf(cpu->fregs[decoded.rs1], cpu->fregs[decoded.rs2]);
+            break;
+        case INST_FMAX_S:
+            cpu->fregs[decoded.rd] = fmaxf(cpu->fregs[decoded.rs1], cpu->fregs[decoded.rs2]);
+            break;
+        case INST_FSGNJ_S:
+            cpu->fregs[decoded.rd] = copysignf(cpu->fregs[decoded.rs1], cpu->fregs[decoded.rs2]);
+            break;
+        case INST_FSGNJN_S:
+            cpu->fregs[decoded.rd] = copysignf(cpu->fregs[decoded.rs1], -cpu->fregs[decoded.rs2]);
+            break;
+        case INST_FSGNJX_S: {
+            uint32_t a = *(uint32_t*)&cpu->fregs[decoded.rs1];
+            uint32_t b = *(uint32_t*)&cpu->fregs[decoded.rs2];
+            uint32_t result = a ^ (b & 0x80000000);
+            cpu->fregs[decoded.rd] = *(float*)&result;
+            break;
+        }
+        case INST_FEQ_S:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (cpu->fregs[decoded.rs1] == cpu->fregs[decoded.rs2]) ? 1 : 0;
+            }
+            break;
+        case INST_FLT_S:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (cpu->fregs[decoded.rs1] < cpu->fregs[decoded.rs2]) ? 1 : 0;
+            }
+            break;
+        case INST_FLE_S:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (cpu->fregs[decoded.rs1] <= cpu->fregs[decoded.rs2]) ? 1 : 0;
+            }
+            break;
+        case INST_FCVT_W_S:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (int32_t)cpu->fregs[decoded.rs1];
+            }
+            break;
+        case INST_FCVT_WU_S:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (uint32_t)cpu->fregs[decoded.rs1];
+            }
+            break;
+        case INST_FCVT_S_W:
+            cpu->fregs[decoded.rd] = (float)(int32_t)cpu->regs[decoded.rs1];
+            break;
+        case INST_FCVT_S_WU:
+            cpu->fregs[decoded.rd] = (float)cpu->regs[decoded.rs1];
+            break;
+        case INST_FMV_X_W:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = *(uint32_t*)&cpu->fregs[decoded.rs1];
+            }
+            break;
+
+        case INST_FMV_W_X:
+            cpu->fregs[decoded.rd] = *(float*)&cpu->regs[decoded.rs1];
+            break;
+        case INST_FMADD_S:
+            cpu->fregs[decoded.rd] = fmaf(cpu->fregs[decoded.rs1], cpu->fregs[decoded.rs2], cpu->fregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FMSUB_S:
+            cpu->fregs[decoded.rd] = fmaf(cpu->fregs[decoded.rs1], cpu->fregs[decoded.rs2], -cpu->fregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FNMSUB_S:
+            cpu->fregs[decoded.rd] = -fmaf(cpu->fregs[decoded.rs1], cpu->fregs[decoded.rs2], -cpu->fregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FNMADD_S:
+            cpu->fregs[decoded.rd] = -fmaf(cpu->fregs[decoded.rs1], cpu->fregs[decoded.rs2], cpu->fregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FCLASS_S:
+            if (decoded.rd != 0) {
+                float val = cpu->fregs[decoded.rs1];
+                uint32_t result = 0;
+                if (isnan(val)) result = (signbit(val)) ? 0x200 : 0x100;
+                else if (isinf(val)) result = (signbit(val)) ? 0x001 : 0x080;
+                else if (val == 0.0f) result = (signbit(val)) ? 0x008 : 0x010;
+                else if (isnormal(val)) result = (signbit(val)) ? 0x002 : 0x040;
+                else result = (signbit(val)) ? 0x004 : 0x020; // subnormal
+                cpu->regs[decoded.rd] = result;
+            }
+            break;
+        // Double Precision Instructions
+        case INST_FLD:
+            if (decoded.rd != 0) {
+                uint32_t addr = cpu->regs[decoded.rs1] + decoded.imm;
+                uint64_t raw = ((uint64_t)memory_read_word(memory, addr + 4) << 32) | memory_read_word(memory, addr);
+                cpu->dfregs[decoded.rd] = *(double*)&raw;
+            }
+            break;
+        case INST_FADD_D:
+            cpu->dfregs[decoded.rd] = cpu->dfregs[decoded.rs1] + cpu->dfregs[decoded.rs2];
+            break;
+        case INST_FSUB_D:
+            cpu->dfregs[decoded.rd] = cpu->dfregs[decoded.rs1] - cpu->dfregs[decoded.rs2];
+            break;
+        case INST_FMUL_D:
+            cpu->dfregs[decoded.rd] = cpu->dfregs[decoded.rs1] * cpu->dfregs[decoded.rs2];
+            break;
+        case INST_FDIV_D:
+            cpu->dfregs[decoded.rd] = cpu->dfregs[decoded.rs1] / cpu->dfregs[decoded.rs2];
+            break;
+        case INST_FSQRT_D:
+            cpu->dfregs[decoded.rd] = sqrt(cpu->dfregs[decoded.rs1]);
+            break;
+        case INST_FMIN_D:
+            cpu->dfregs[decoded.rd] = fmin(cpu->dfregs[decoded.rs1], cpu->dfregs[decoded.rs2]);
+            break;
+        case INST_FMAX_D:
+            cpu->dfregs[decoded.rd] = fmax(cpu->dfregs[decoded.rs1], cpu->dfregs[decoded.rs2]);
+            break;
+        case INST_FSGNJ_D:
+            cpu->dfregs[decoded.rd] = copysign(cpu->dfregs[decoded.rs1], cpu->dfregs[decoded.rs2]);
+            break;
+        case INST_FSGNJN_D:
+            cpu->dfregs[decoded.rd] = copysign(cpu->dfregs[decoded.rs1], -cpu->dfregs[decoded.rs2]);
+            break;
+        case INST_FSGNJX_D: {
+            uint64_t a = *(uint64_t*)&cpu->dfregs[decoded.rs1];
+            uint64_t b = *(uint64_t*)&cpu->dfregs[decoded.rs2];
+            uint64_t result = a ^ (b & 0x8000000000000000ULL);
+            cpu->dfregs[decoded.rd] = *(double*)&result;
+            break;
+        }
+        case INST_FEQ_D:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (cpu->dfregs[decoded.rs1] == cpu->dfregs[decoded.rs2]) ? 1 : 0;
+            }
+            break;
+        case INST_FLT_D:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (cpu->dfregs[decoded.rs1] < cpu->dfregs[decoded.rs2]) ? 1 : 0;
+            }
+            break;
+        case INST_FLE_D:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (cpu->dfregs[decoded.rs1] <= cpu->dfregs[decoded.rs2]) ? 1 : 0;
+            }
+            break;
+        case INST_FCVT_W_D:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (int32_t)cpu->dfregs[decoded.rs1];
+            }
+            break;
+        case INST_FCVT_WU_D:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = (uint32_t)cpu->dfregs[decoded.rs1];
+            }
+            break;
+        case INST_FCVT_D_W:
+            cpu->dfregs[decoded.rd] = (double)(int32_t)cpu->regs[decoded.rs1];
+            break;
+        case INST_FCVT_D_WU:
+            cpu->dfregs[decoded.rd] = (double)cpu->regs[decoded.rs1];
+            break;
+        case INST_FCVT_S_D:
+            cpu->fregs[decoded.rd] = (float)cpu->dfregs[decoded.rs1];
+            break;
+        case INST_FCVT_D_S:
+            cpu->dfregs[decoded.rd] = (double)cpu->fregs[decoded.rs1];
+            break;
+        case INST_FMADD_D:
+            cpu->dfregs[decoded.rd] = fma(cpu->dfregs[decoded.rs1], cpu->dfregs[decoded.rs2], cpu->dfregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FMSUB_D:
+            cpu->dfregs[decoded.rd] = fma(cpu->dfregs[decoded.rs1], cpu->dfregs[decoded.rs2], -cpu->dfregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FNMSUB_D:
+            cpu->dfregs[decoded.rd] = -fma(cpu->dfregs[decoded.rs1], cpu->dfregs[decoded.rs2], -cpu->dfregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FNMADD_D:
+            cpu->dfregs[decoded.rd] = -fma(cpu->dfregs[decoded.rs1], cpu->dfregs[decoded.rs2], cpu->dfregs[(instruction >> 27) & 0x1F]);
+            break;
+        case INST_FCLASS_D:
+            if (decoded.rd != 0) {
+                double val = cpu->dfregs[decoded.rs1];
+                uint32_t result = 0;
+                if (isnan(val)) result = (signbit(val)) ? 0x200 : 0x100;
+                else if (isinf(val)) result = (signbit(val)) ? 0x001 : 0x080;
+                else if (val == 0.0) result = (signbit(val)) ? 0x008 : 0x010;
+                else if (isnormal(val)) result = (signbit(val)) ? 0x002 : 0x040;
+                else result = (signbit(val)) ? 0x004 : 0x020; // subnormal
+                cpu->regs[decoded.rd] = result;
+            }
+            break;
         case INST_UNKNOWN:
         default:
             printf("Unknown instruction: 0x%08x\n", instruction);
             break;
     }
-    
     cpu->pc += 4; // Move to next instruction
 }

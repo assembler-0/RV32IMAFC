@@ -14,13 +14,13 @@ TEST_TARGET = test_runner
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ) -lm
 
 test: $(TEST_TARGET)
 	./$(TEST_TARGET)
 
 $(TEST_TARGET): $(OBJ) $(TEST_OBJ)
-	$(CC) $(CFLAGS) -o $(TEST_TARGET) $(OBJ) $(TEST_OBJ)
+	$(CC) $(CFLAGS) -o $(TEST_TARGET) $(OBJ) $(TEST_OBJ) -lm
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@

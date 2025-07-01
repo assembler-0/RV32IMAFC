@@ -17,7 +17,15 @@
 #define OPCODE_JAL      0x6F
 #define OPCODE_JALR     0x67
 #define OPCODE_SYSTEM   0x73  // System instructions
-#define OPCODE_AMO      0x2F
+#define OPCODE_AMO      0x2F  // Atomic operations
+#define OPCODE_MADD     0x43
+#define OPCODE_MSUB     0x47
+#define OPCODE_NMSUB    0x4B
+#define OPCODE_NMADD    0x4F
+#define OPCODE_OP_FP    0x53
+#define OPCODE_LOAD_FP  0x07
+#define OPCODE_STORE_FP 0x27
+
 // Privilege Levels
 typedef enum {
     USER_MODE = 0,
@@ -27,6 +35,8 @@ typedef enum {
 
 typedef struct {
     uint32_t regs[NUM_REGISTERS]; // General-purpose registers (x0-x31)
+    float fregs[NUM_REGISTERS];   // Single precision FP registers
+    double dfregs[NUM_REGISTERS]; // Double precision FP registers
     uint32_t pc;                  // Program Counter
     uint32_t csrs[4096];          // CSRs
     privilege_level_t privilege;  // Current privilege level

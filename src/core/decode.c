@@ -285,6 +285,157 @@ void decode_instruction(uint32_t instruction, instruction_t* decoded_inst) {
             decoded_inst->inst_type = INST_UNKNOWN;
         }
     }
+
+
+    else if (decoded_inst->opcode == OPCODE_MADD) {
+        uint32_t funct2 = (instruction >> 25) & 0x3;
+        if (funct2 == 0x0) {
+            decoded_inst->inst_type = INST_FMADD_S;
+        } else if (funct2 == 0x1) {
+            decoded_inst->inst_type = INST_FMADD_D;
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
+    else if (decoded_inst->opcode == OPCODE_MSUB) {
+        uint32_t funct2 = (instruction >> 25) & 0x3;
+        if (funct2 == 0x0) {
+            decoded_inst->inst_type = INST_FMSUB_S;
+        } else if (funct2 == 0x1) {
+            decoded_inst->inst_type = INST_FMSUB_D;
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
+    else if (decoded_inst->opcode == OPCODE_NMSUB) {
+        uint32_t funct2 = (instruction >> 25) & 0x3;
+        if (funct2 == 0x0) {
+            decoded_inst->inst_type = INST_FNMSUB_S;
+        } else if (funct2 == 0x1) {
+            decoded_inst->inst_type = INST_FNMSUB_D;
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
+    else if (decoded_inst->opcode == OPCODE_NMADD) {
+        uint32_t funct2 = (instruction >> 25) & 0x3;
+        if (funct2 == 0x0) {
+            decoded_inst->inst_type = INST_FNMADD_S;
+        } else if (funct2 == 0x1) {
+            decoded_inst->inst_type = INST_FNMADD_D;
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
+    else if (decoded_inst->opcode == OPCODE_OP_FP) {
+        uint32_t funct7 = (instruction >> 25) & 0x7F;
+        uint32_t rs2 = (instruction >> 20) & 0x1F;
+        uint32_t funct3 = (instruction >> 12) & 0x7;
+        
+        if (funct7 == 0x00) {
+            decoded_inst->inst_type = INST_FADD_S;
+        } else if (funct7 == 0x04) {
+            decoded_inst->inst_type = INST_FSUB_S;
+        } else if (funct7 == 0x08) {
+            decoded_inst->inst_type = INST_FMUL_S;
+        } else if (funct7 == 0x0C) {
+            decoded_inst->inst_type = INST_FDIV_S;
+        } else if (funct7 == 0x2C && rs2 == 0x00) {
+            decoded_inst->inst_type = INST_FSQRT_S;
+        } else if (funct7 == 0x10 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FSGNJ_S;
+        } else if (funct7 == 0x10 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FSGNJN_S;
+        } else if (funct7 == 0x10 && funct3 == 0x2) {
+            decoded_inst->inst_type = INST_FSGNJX_S;
+        } else if (funct7 == 0x14 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FMIN_S;
+        } else if (funct7 == 0x14 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FMAX_S;
+        } else if (funct7 == 0x60 && rs2 == 0x00) {
+            decoded_inst->inst_type = INST_FCVT_W_S;
+        } else if (funct7 == 0x60 && rs2 == 0x01) {
+            decoded_inst->inst_type = INST_FCVT_WU_S;
+        } else if (funct7 == 0x70 && rs2 == 0x00 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FMV_X_W;
+        } else if (funct7 == 0x50 && funct3 == 0x2) {
+            decoded_inst->inst_type = INST_FEQ_S;
+        } else if (funct7 == 0x50 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FLT_S;
+        } else if (funct7 == 0x50 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FLE_S;
+        } else if (funct7 == 0x70 && rs2 == 0x00 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FCLASS_S;
+        } else if (funct7 == 0x68 && rs2 == 0x00) {
+            decoded_inst->inst_type = INST_FCVT_S_W;
+        } else if (funct7 == 0x68 && rs2 == 0x01) {
+            decoded_inst->inst_type = INST_FCVT_S_WU;
+        } else if (funct7 == 0x78 && rs2 == 0x00 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FMV_W_X;
+        }
+        // Double precision
+        else if (funct7 == 0x01) {
+            decoded_inst->inst_type = INST_FADD_D;
+        } else if (funct7 == 0x05) {
+            decoded_inst->inst_type = INST_FSUB_D;
+        } else if (funct7 == 0x09) {
+            decoded_inst->inst_type = INST_FMUL_D;
+        } else if (funct7 == 0x0D) {
+            decoded_inst->inst_type = INST_FDIV_D;
+        } else if (funct7 == 0x2D && rs2 == 0x00) {
+            decoded_inst->inst_type = INST_FSQRT_D;
+        } else if (funct7 == 0x11 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FSGNJ_D;
+        } else if (funct7 == 0x11 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FSGNJN_D;
+        } else if (funct7 == 0x11 && funct3 == 0x2) {
+            decoded_inst->inst_type = INST_FSGNJX_D;
+        } else if (funct7 == 0x15 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FMIN_D;
+        } else if (funct7 == 0x15 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FMAX_D;
+        } else if (funct7 == 0x20 && rs2 == 0x01) {
+            decoded_inst->inst_type = INST_FCVT_S_D;
+        } else if (funct7 == 0x21 && rs2 == 0x00) {
+            decoded_inst->inst_type = INST_FCVT_D_S;
+        } else if (funct7 == 0x51 && funct3 == 0x2) {
+            decoded_inst->inst_type = INST_FEQ_D;
+        } else if (funct7 == 0x51 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FLT_D;
+        } else if (funct7 == 0x51 && funct3 == 0x0) {
+            decoded_inst->inst_type = INST_FLE_D;
+        } else if (funct7 == 0x71 && rs2 == 0x00 && funct3 == 0x1) {
+            decoded_inst->inst_type = INST_FCLASS_D;
+        } else if (funct7 == 0x61 && rs2 == 0x00) {
+            decoded_inst->inst_type = INST_FCVT_W_D;
+        } else if (funct7 == 0x61 && rs2 == 0x01) {
+            decoded_inst->inst_type = INST_FCVT_WU_D;
+        } else if (funct7 == 0x69 && rs2 == 0x00) {
+            decoded_inst->inst_type = INST_FCVT_D_W;
+        } else if (funct7 == 0x69 && rs2 == 0x01) {
+            decoded_inst->inst_type = INST_FCVT_D_WU;
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
+    else if (decoded_inst->opcode == OPCODE_LOAD_FP) {
+        uint32_t funct3 = (instruction >> 12) & 0x7;
+        if (funct3 == 0x2) {
+            decoded_inst->inst_type = INST_FLW;
+        } else if (funct3 == 0x3) {
+            decoded_inst->inst_type = INST_FLD;
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
+    else if (decoded_inst->opcode == OPCODE_STORE_FP) {
+        uint32_t funct3 = (instruction >> 12) & 0x7;
+        if (funct3 == 0x2) {
+            decoded_inst->inst_type = INST_FSW;
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
     else {
         decoded_inst->inst_type = INST_UNKNOWN;
     }
