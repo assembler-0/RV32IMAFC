@@ -251,6 +251,40 @@ void decode_instruction(uint32_t instruction, instruction_t* decoded_inst) {
             decoded_inst->inst_type = INST_UNKNOWN;
         }
     }
+    else if (decoded_inst->opcode == OPCODE_AMO) {
+        uint32_t funct3 = (instruction >> 12) & 0x7;
+        uint32_t funct5 = (instruction >> 27) & 0x1F;
+
+        if (funct3 == 0x2) { // All AMO.W instructions have funct3 = 0x2
+            if (funct5 == 0x02) {
+                decoded_inst->inst_type = INST_LR_W;
+            } else if (funct5 == 0x03) {
+                decoded_inst->inst_type = INST_SC_W;
+            } else if (funct5 == 0x01) {
+                decoded_inst->inst_type = INST_AMOSWAP_W;
+            } else if (funct5 == 0x00) {
+                decoded_inst->inst_type = INST_AMOADD_W;
+            } else if (funct5 == 0x04) {
+                decoded_inst->inst_type = INST_AMOXOR_W;
+            } else if (funct5 == 0x0C) {
+                decoded_inst->inst_type = INST_AMOAND_W;
+            } else if (funct5 == 0x08) {
+                decoded_inst->inst_type = INST_AMOOR_W;
+            } else if (funct5 == 0x10) {
+                decoded_inst->inst_type = INST_AMOMIN_W;
+            } else if (funct5 == 0x14) {
+                decoded_inst->inst_type = INST_AMOMAX_W;
+            } else if (funct5 == 0x18) {
+                decoded_inst->inst_type = INST_AMOMINU_W;
+            } else if (funct5 == 0x1C) {
+                decoded_inst->inst_type = INST_AMOMAXU_W;
+            } else {
+                decoded_inst->inst_type = INST_UNKNOWN;
+            }
+        } else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
     else {
         decoded_inst->inst_type = INST_UNKNOWN;
     }

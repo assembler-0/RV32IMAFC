@@ -12,6 +12,9 @@ void cpu_init(cpu_t* cpu) {
     }
     cpu->pc = 0;
     cpu->privilege = MACHINE_MODE;
+    cpu->reserved_address = 0;
+    cpu->reservation_set = 0;
+
 }
 
 void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
@@ -382,6 +385,91 @@ void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
             }
             cpu->csrs[decoded.imm] &= ~decoded.rs1;
             break;
+        case INST_LR_W: {
+            if (decoded.rd != 0) {
+                uint32_t addr = cpu->regs[decoded.rs1];
+                cpu->regs[decoded.rd] = memory_read_word(memory, addr);
+                cpu->reserved_address = addr;
+                cpu->reservation_set = 1;
+            }
+            break;
+        }
+        case INST_SC_W: {
+            if (decoded.rd != 0) {
+                uint32_t addr = cpu->regs[decoded.rs1];
+                if (cpu->reservation_set && cpu->reserved_address == addr) {
+                    memory_write_word(memory, addr, cpu->regs[decoded.rs2]);
+                    cpu->regs[decoded.rd] = 0;
+                } else {
+                    cpu->regs[decoded.rd] = 1;
+                }
+                cpu->reservation_set = 0;
+            }
+            break;
+        }
+        case INST_AMOSWAP_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOADD_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, temp + cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOXOR_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, temp ^ cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOAND_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, temp & cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOOR_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, temp | cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOMIN_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, ((int32_t)temp < (int32_t)cpu->regs[decoded.rs2]) ? temp : cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOMAX_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, ((int32_t)temp > (int32_t)cpu->regs[decoded.rs2]) ? temp : cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOMINU_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, (temp < cpu->regs[decoded.rs2]) ? temp : cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
+        case INST_AMOMAXU_W: {
+            uint32_t addr = cpu->regs[decoded.rs1];
+            uint32_t temp = memory_read_word(memory, addr);
+            memory_write_word(memory, addr, (temp > cpu->regs[decoded.rs2]) ? temp : cpu->regs[decoded.rs2]);
+            cpu->regs[decoded.rd] = temp;
+            break;
+        }
         case INST_UNKNOWN:
         default:
             printf("Unknown instruction: 0x%08x\n", instruction);

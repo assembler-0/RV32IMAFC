@@ -88,6 +88,171 @@
 # URET (treated as NOP for now)
 0x00200073 # uret
 
+# Atomic instructions
+0x001007b7 # lui x15, 0x10000 # Set x15 to 0x1000
+0x00078793 # addi x15, x15, 0 # Set x15 to 0x1000
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Set x5 to initial value (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Set x5 to initial value (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0207a22f # lr.w x5, (x15) # Load Reserved Word (x5 should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x0007a02f # sc.w x0, x0, (x15) # Store Conditional (should fail, x0=0)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0207a22f # lr.w x5, (x15) # Load Reserved Word (x5 should be 0x12345678)
+0x00000013 # nop
+0x87654237 # lui x5, 0x87654 # Set x5 to new value for SC (upper 20 bits)
+0x32128293 # addi x5, x5, 0x321 # Set x5 to new value for SC (lower 12 bits)
+0x00000013 # nop
+0x0007a02f # sc.w x0, x5, (x15) # Store Conditional (should succeed, x0=0)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x87654321)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amoswap.w x0, x5, (x15) # Atomic Swap (x0 should be 0x12345678, memory should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amoadd.w x0, x5, (x15) # Atomic Add (x0 should be 0x12345678, memory should be 0x2468acf0)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x2468acf0)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amoxor.w x0, x5, (x15) # Atomic XOR (x0 should be 0x12345678, memory should be 0x0)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x0)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amoand.w x0, x5, (x15) # Atomic AND (x0 should be 0x12345678, memory should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amoor.w x0, x5, (x15) # Atomic OR (x0 should be 0x12345678, memory should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amomin.w x0, x5, (x15) # Atomic MIN (signed) (x0 should be 0x12345678, memory should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amomax.w x0, x5, (x15) # Atomic MAX (signed) (x0 should be 0x12345678, memory should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amominu.w x0, x5, (x15) # Atomic MIN (unsigned) (x0 should be 0x12345678, memory should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
+0x001007b7 # lui x15, 0x10000 # Reset x15 for next test
+0x00078793 # addi x15, x15, 0 # Reset x15 for next test
+0x00000013 # nop
+0x12345237 # lui x5, 0x12345 # Reset x5 for next test (upper 20 bits)
+0x67828293 # addi x5, x5, 0x678 # Reset x5 for next test (lower 12 bits)
+0x00000013 # nop
+0x0007a023 # sw x5, 0(x15) # Store initial value to memory
+0x00000013 # nop
+
+0x0007a02f # amomaxu.w x0, x5, (x15) # Atomic MAX (unsigned) (x0 should be 0x12345678, memory should be 0x12345678)
+0x00000013 # nop
+0x0007a783 # lw x29, 0(x15) # Read memory to verify (x29 should be 0x12345678)
+0x00000013 # nop
+
 # CSR tests
 0x30001073 # csrrw x1, mstatus, x0
 0x300020f3 # csrrs x1, mstatus, x0
