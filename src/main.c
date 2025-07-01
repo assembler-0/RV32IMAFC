@@ -29,6 +29,7 @@ void print_result(cpu_t* cpu, uint32_t instruction, memory_t* memory) {
         printf("Result: No register change\n");
     }
     printf("PC: 0x%08x\n", cpu->pc);
+    printf("Privilege Level: %u\n", cpu->privilege);
     printf("--------------------------------\n\n");
 }
 
@@ -36,7 +37,7 @@ int main() {
     cpu_t cpu;
     memory_t memory;
     FILE* file;
-    char line[256];
+    char line[1024];
     uint32_t instruction;
     int test_num = 1;
 

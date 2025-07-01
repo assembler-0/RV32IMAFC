@@ -11,7 +11,7 @@ void decode_instruction(uint32_t instruction, instruction_t* decoded_inst) {
     decoded_inst->imm = (int32_t)(instruction >> 20);
     
     if (decoded_inst->opcode == OPCODE_AUIPC) {
-        decoded_inst->imm = (int32_t)(instruction & 0xFFFFF000); // U-type
+        decoded_inst->imm = instruction & 0xFFFFF000; // U-type
         decoded_inst->inst_type = INST_AUIPC;
     }
     else if (decoded_inst->opcode == OPCODE_LUI) {
@@ -205,6 +205,49 @@ void decode_instruction(uint32_t instruction, instruction_t* decoded_inst) {
             decoded_inst->inst_type = INST_AND;
         }
         else {
+            decoded_inst->inst_type = INST_UNKNOWN;
+        }
+    }
+    else if (decoded_inst->opcode == OPCODE_SYSTEM) {
+        uint32_t funct3 = (instruction >> 12) & 0x7;
+        uint32_t funct12 = (instruction >> 20) & 0xFFF;
+        decoded_inst->imm = funct12;
+
+        if (funct3 == 0) { // FENCE, ECALL, EBREAK, MRET, WFI, SFENCE.VMA
+            if (funct12 == 0x000) {
+                decoded_inst->inst_type = INST_ECALL;
+            } else if (funct12 == 0x001) {
+                decoded_inst->inst_type = INST_EBREAK;
+            } else if (funct12 == 0x302) {
+                decoded_inst->inst_type = INST_MRET;
+            } else if (funct12 == 0x102) {
+                decoded_inst->inst_type = INST_SRET;
+            } else if (funct12 == 0x002) {
+                decoded_inst->inst_type = INST_URET;
+            } else if (funct12 == 0x105) {
+                decoded_inst->inst_type = INST_WFI;
+            } else if ((funct12 >> 5) == 0x09) { // SFENCE.VMA (funct7=0x09)
+                decoded_inst->inst_type = INST_SFENCE_VMA;
+            } else {
+                decoded_inst->inst_type = INST_FENCE;
+            }
+        } else if (funct3 == 0x1) {
+            if (funct12 == 0x001) {
+                decoded_inst->inst_type = INST_FENCE_I;
+            } else {
+                decoded_inst->inst_type = INST_CSRRW;
+            }
+        } else if (funct3 == 0x2) {
+            decoded_inst->inst_type = INST_CSRRS;
+        } else if (funct3 == 0x3) {
+            decoded_inst->inst_type = INST_CSRRC;
+        } else if (funct3 == 0x5) {
+            decoded_inst->inst_type = INST_CSRRWI;
+        } else if (funct3 == 0x6) {
+            decoded_inst->inst_type = INST_CSRRSI;
+        } else if (funct3 == 0x7) {
+            decoded_inst->inst_type = INST_CSRRCI;
+        } else {
             decoded_inst->inst_type = INST_UNKNOWN;
         }
     }

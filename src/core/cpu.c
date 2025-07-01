@@ -7,7 +7,11 @@ void cpu_init(cpu_t* cpu) {
     for (int i = 0; i < NUM_REGISTERS; i++) {
         cpu->regs[i] = 0;
     }
+    for (int i = 0; i < 4096; i++) {
+        cpu->csrs[i] = 0;
+    }
     cpu->pc = 0;
+    cpu->privilege = MACHINE_MODE;
 }
 
 void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
@@ -37,7 +41,7 @@ void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
             break;
         case INST_SRA:
             if (decoded.rd != 0) {
-                cpu->regs[decoded.rd] = (int32_t)cpu->regs[decoded.rs1] >> (cpu->regs[decoded.rs2] & 0x1F);
+                cpu->regs[decoded.rd] = (int32_t)cpu->regs[decoded.rs1] >> (int32_t)decoded.rs2 & 0x1F;
             }
             break;
         case INST_ADD:
@@ -274,6 +278,109 @@ void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
             if (decoded.rd != 0) {
                 cpu->regs[decoded.rd] = cpu->pc + decoded.imm;
             }
+            break;
+        case INST_FENCE:
+            // NOP for this simple emulator
+            break;
+        case INST_FENCE_I:
+            // Instruction cache flush - NOP for this emulator
+            break;
+        case INST_SFENCE_VMA:
+            // TLB flush - NOP for this emulator (no virtual memory)
+            break;
+        case INST_WFI:
+            // Wait for interrupt - NOP for this emulator
+            break;
+        case INST_ECALL:
+            // Save current PC to MEPC/SEPC based on privilege
+            if (cpu->privilege == USER_MODE) {
+                cpu->csrs[CSR_MEPC] = cpu->pc;
+                cpu->csrs[CSR_MCAUSE] = 8; // Environment call from U-mode
+            } else if (cpu->privilege == SUPERVISOR_MODE) {
+                cpu->csrs[CSR_SEPC] = cpu->pc;
+                cpu->csrs[CSR_SCAUSE] = 8; // Environment call from S-mode
+            } else { // MACHINE_MODE
+                cpu->csrs[CSR_MEPC] = cpu->pc;
+                cpu->csrs[CSR_MCAUSE] = 11; // Environment call from M-mode
+            }
+            // All traps enter M-mode
+            cpu->privilege = MACHINE_MODE;
+            cpu->pc = cpu->csrs[CSR_MTVEC];
+            return;
+        case INST_EBREAK:
+            cpu->csrs[CSR_MEPC] = cpu->pc;
+            cpu->csrs[CSR_MCAUSE] = 3; // Breakpoint
+            cpu->privilege = MACHINE_MODE;
+            cpu->pc = cpu->csrs[CSR_MTVEC];
+            return;
+        case INST_MRET: {
+            uint32_t mstatus = cpu->csrs[CSR_MSTATUS];
+            cpu->pc = cpu->csrs[CSR_MEPC];
+            // Restore previous privilege mode from MPP
+            cpu->privilege = (mstatus >> 11) & 0x3;
+            // Set MPIE to MIE, and MIE to 1
+            mstatus = (mstatus & ~(1 << 7)) | (((mstatus >> 7) & 1) << 3); // MPIE to MIE
+            mstatus |= (1 << 7); // Set MPIE to 1
+            // Set MPP to User Mode (0)
+            mstatus &= ~(0x3 << 11);
+            cpu->csrs[CSR_MSTATUS] = mstatus;
+            return;
+        }
+        case INST_SRET: {
+            uint32_t sstatus = cpu->csrs[CSR_SSTATUS];
+            cpu->pc = cpu->csrs[CSR_SEPC];
+            // Restore previous privilege mode from SPP
+            cpu->privilege = (sstatus >> 8) & 0x1;
+            // Set SPIE to SIE, and SIE to 1
+            sstatus = (sstatus & ~(1 << 5)) | (((sstatus >> 5) & 1) << 1); // SPIE to SIE
+            sstatus |= (1 << 5); // Set SPIE to 1
+            // Set SPP to User Mode (0)
+            sstatus &= ~(0x1 << 8);
+            cpu->csrs[CSR_SSTATUS] = sstatus;
+            return;
+        }
+        case INST_URET:
+            // URET is an illegal instruction in most implementations
+            cpu->csrs[CSR_MEPC] = cpu->pc;
+            cpu->csrs[CSR_MCAUSE] = 2; // Illegal instruction
+            cpu->privilege = MACHINE_MODE;
+            cpu->pc = cpu->csrs[CSR_MTVEC];
+            return;
+        case INST_CSRRW:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = cpu->csrs[decoded.imm];
+            }
+            cpu->csrs[decoded.imm] = cpu->regs[decoded.rs1];
+            break;
+        case INST_CSRRS:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = cpu->csrs[decoded.imm];
+            }
+            cpu->csrs[decoded.imm] |= cpu->regs[decoded.rs1];
+            break;
+        case INST_CSRRC:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = cpu->csrs[decoded.imm];
+            }
+            cpu->csrs[decoded.imm] &= ~cpu->regs[decoded.rs1];
+            break;
+        case INST_CSRRWI:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = cpu->csrs[decoded.imm];
+            }
+            cpu->csrs[decoded.imm] = decoded.rs1;
+            break;
+        case INST_CSRRSI:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = cpu->csrs[decoded.imm];
+            }
+            cpu->csrs[decoded.imm] |= decoded.rs1;
+            break;
+        case INST_CSRRCI:
+            if (decoded.rd != 0) {
+                cpu->regs[decoded.rd] = cpu->csrs[decoded.imm];
+            }
+            cpu->csrs[decoded.imm] &= ~decoded.rs1;
             break;
         case INST_UNKNOWN:
         default:

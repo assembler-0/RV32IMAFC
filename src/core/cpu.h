@@ -16,6 +16,33 @@
 #define OPCODE_STORE    0x23  // Store instructions
 #define OPCODE_JAL      0x6F
 #define OPCODE_JALR     0x67
+#define OPCODE_SYSTEM   0x73  // System instructions
+
+// Privilege Levels
+typedef enum {
+    USER_MODE = 0,
+    SUPERVISOR_MODE = 1,
+    MACHINE_MODE = 3
+} privilege_level_t;
+
+// CSR Addresses
+#define CSR_MSTATUS     0x300
+#define CSR_MISA        0x301
+#define CSR_MIE         0x304
+#define CSR_MTVEC       0x305
+#define CSR_MEPC        0x341
+#define CSR_MCAUSE      0x342
+#define CSR_MTVAL       0x343
+#define CSR_MIP         0x344
+
+#define CSR_SSTATUS     0x100
+#define CSR_SIE         0x104
+#define CSR_STVEC       0x105
+#define CSR_SEPC        0x141
+#define CSR_SCAUSE      0x142
+#define CSR_STVAL       0x143
+#define CSR_SIP         0x144
+
 // Instruction types
 typedef enum {
     //R-Type
@@ -68,6 +95,22 @@ typedef enum {
     INST_JALR,
     INST_LUI,
     INST_AUIPC,
+    // System
+    INST_FENCE,
+    INST_FENCE_I,
+    INST_SFENCE_VMA,
+    INST_WFI,
+    INST_ECALL,
+    INST_EBREAK,
+    INST_MRET,
+    INST_SRET,
+    INST_URET,
+    INST_CSRRW,
+    INST_CSRRS,
+    INST_CSRRC,
+    INST_CSRRWI,
+    INST_CSRRSI,
+    INST_CSRRCI,
     //Unknown
     INST_UNKNOWN
 } inst_type_t;
@@ -76,6 +119,8 @@ typedef enum {
 typedef struct {
     uint32_t regs[NUM_REGISTERS]; // General-purpose registers (x0-x31)
     uint32_t pc;                  // Program Counter
+    uint32_t csrs[4096];          // CSRs
+    privilege_level_t privilege;  // Current privilege level
 } cpu_t;
 
 void cpu_init(cpu_t* cpu);

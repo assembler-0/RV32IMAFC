@@ -38,3 +38,56 @@
 0x00000013 # nop
 0x00000013 # nop
 0x000081e7 # jalr x3, x1, 0
+
+# System instructions
+# Set MTVEC to 0x100000
+0x01000037 # lui x6, 0x100
+0x305f9073 # csrrw x0, mtvec, x6
+
+# Set STVEC to 0x200000
+0x02000037 # lui x6, 0x200
+0x105f9073 # csrrw x0, stvec, x6
+
+# Set MSTATUS to allow S-mode (MPP = 01, MPIE = 1)
+0x0080037 # lui x6, 0x800 # MPP = 01 (S-mode), MPIE = 1
+0x300f9073 # csrrw x0, mstatus, x6
+
+# Set SSTATUS to allow U-mode (SPP = 0, SPIE = 1)
+0x0000037 # lui x6, 0x0 # SPP = 0 (U-mode), SPIE = 1
+0x100f9073 # csrrw x0, sstatus, x6
+
+# ECALL from M-mode (should jump to MTVEC)
+0x00000097 # auipc x1, 0
+0x00808093 # addi x1, x1, 8 # PC + 8 (address of mret)
+0x34109073 # csrrw x0, mepc, x1 # Save PC of next instruction to MEPC
+0x00000073 # ecall
+0x00000013 # nop (should not be executed)
+
+# MRET (should return to MEPC and change privilege)
+0x30200073 # mret
+0x00000013 # nop (should be executed after MRET)
+
+# ECALL from S-mode (should jump to STVEC)
+0x00000097 # auipc x1, 0
+0x00808093 # addi x1, x1, 8 # PC + 8 (address of sret)
+0x14109073 # csrrw x0, sepc, x1 # Save PC of next instruction to SEPC
+0x00000073 # ecall
+0x00000013 # nop (should not be executed)
+
+# SRET (should return to SEPC and change privilege)
+0x10200073 # sret
+0x00000013 # nop (should be executed after SRET)
+
+# ECALL from U-mode (should jump to MTVEC)
+0x00000097 # auipc x1, 0
+0x00808093 # addi x1, x1, 8 # PC + 8 (address of uret)
+0x34109073 # csrrw x0, mepc, x1 # Save PC of next instruction to MEPC
+0x00000073 # ecall
+0x00000013 # nop (should not be executed)
+
+# URET (treated as NOP for now)
+0x00200073 # uret
+
+# CSR tests
+0x30001073 # csrrw x1, mstatus, x0
+0x300020f3 # csrrs x1, mstatus, x0
