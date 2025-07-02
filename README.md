@@ -1,6 +1,6 @@
 # RISC-V Emulator
 
-A complete RISC-V RV32GC emulator implementation in C.
+A complete RISC-V RV32/64GC emulator implementation in C.
 
 ## Features
 
@@ -21,7 +21,7 @@ A complete RISC-V RV32GC emulator implementation in C.
 ```bash
 mkdir build
 cd build
-cmake ..
+cmake .. -XLEN=64 -DCMAKE_BUILD_TYPE=Release
 make
 ```
 
