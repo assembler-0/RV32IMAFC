@@ -1,10 +1,20 @@
 #include "cpu.h"
 #include "decode.h"
 #include "memory.h"
+#include "jump_table.h"
 #include <stdio.h>
 #include <math.h>
 
+// Flag to track if jump table is initialized
+static int jump_table_initialized = 0;
+
 void cpu_init(cpu_t* cpu) {
+    // Initialize jump table on first CPU init
+    if (!jump_table_initialized) {
+        init_jump_table();
+        jump_table_initialized = 1;
+    }
+    
     for (int i = 0; i < NUM_REGISTERS; i++) {
         cpu->regs[i] = 0;
         cpu->fregs[i] = 0.0f;
@@ -17,7 +27,6 @@ void cpu_init(cpu_t* cpu) {
     cpu->privilege = MACHINE_MODE;
     cpu->reserved_address = 0;
     cpu->reservation_set = 0;
-
 }
 
 void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
@@ -44,7 +53,26 @@ void cpu_execute(cpu_t* cpu, memory_t* memory, uint32_t instruction) {
 }
 
 void cpu_execute_decoded(cpu_t* cpu, memory_t* memory, instruction_t* decoded, uint32_t instruction) {
+    // BLAZING FAST JUMP TABLE DISPATCH! 🚀
+    inst_func_t handler = instruction_table[decoded->inst_type];
+    handler(cpu, memory, decoded, instruction);
+    
+    // Handle special PC cases (JAL, JALR, branches)
+    if (decoded->inst_type == INST_JAL || decoded->inst_type == INST_JALR ||
+        (decoded->inst_type >= INST_BEQ && decoded->inst_type <= INST_BGEU &&
+         ((decoded->inst_type == INST_BEQ && cpu->regs[decoded->rs1] == cpu->regs[decoded->rs2]) ||
+          (decoded->inst_type == INST_BNE && cpu->regs[decoded->rs1] != cpu->regs[decoded->rs2]) ||
+          (decoded->inst_type == INST_BLT && (sreg_t)cpu->regs[decoded->rs1] < (sreg_t)cpu->regs[decoded->rs2]) ||
+          (decoded->inst_type == INST_BGE && (sreg_t)cpu->regs[decoded->rs1] >= (sreg_t)cpu->regs[decoded->rs2]) ||
+          (decoded->inst_type == INST_BLTU && cpu->regs[decoded->rs1] < cpu->regs[decoded->rs2]) ||
+          (decoded->inst_type == INST_BGEU && cpu->regs[decoded->rs1] >= cpu->regs[decoded->rs2])))) {
+        return; // PC already modified, don't increment
+    }
+}
 
+// LEGACY SWITCH VERSION (commented out for reference)
+#if 0
+void cpu_execute_decoded_legacy(cpu_t* cpu, memory_t* memory, instruction_t* decoded, uint32_t instruction) {
     switch (decoded->inst_type) {
         case INST_SLT:
             if (decoded->rd != 0) { // x0 is hardwired to 0
@@ -711,9 +739,88 @@ void cpu_execute_decoded(cpu_t* cpu, memory_t* memory, instruction_t* decoded, u
                 cpu->regs[decoded->rd] = result;
             }
             break;
+#if XLEN == 64
+        // RV64I Instructions
+        case INST_LWU:
+            if (decoded->rd != 0) {
+                reg_t addr = cpu->regs[decoded->rs1] + (sreg_t)decoded->imm;
+                cpu->regs[decoded->rd] = memory_read_word(memory, addr); // Zero-extend 32-bit load
+            }
+            break;
+        case INST_LD:
+            if (decoded->rd != 0) {
+                reg_t addr = cpu->regs[decoded->rs1] + (sreg_t)decoded->imm;
+                uint64_t low = memory_read_word(memory, addr);
+                uint64_t high = memory_read_word(memory, addr + 4);
+                cpu->regs[decoded->rd] = low | (high << 32);
+            }
+            break;
+        case INST_SD: {
+            reg_t addr = cpu->regs[decoded->rs1] + (sreg_t)decoded->imm;
+            uint64_t value = cpu->regs[decoded->rs2];
+            memory_write_word(memory, addr, value & 0xFFFFFFFF);
+            memory_write_word(memory, addr + 4, value >> 32);
+            break;
+        }
+        case INST_ADDIW:
+            if (decoded->rd != 0) {
+                int32_t result = (int32_t)cpu->regs[decoded->rs1] + decoded->imm;
+                cpu->regs[decoded->rd] = (int64_t)result; // Sign-extend to 64 bits
+            }
+            break;
+        case INST_SLLIW:
+            if (decoded->rd != 0) {
+                int32_t result = (int32_t)cpu->regs[decoded->rs1] << decoded->imm;
+                cpu->regs[decoded->rd] = (int64_t)result;
+            }
+            break;
+        case INST_SRLIW:
+            if (decoded->rd != 0) {
+                uint32_t result = (uint32_t)cpu->regs[decoded->rs1] >> decoded->imm;
+                cpu->regs[decoded->rd] = (int64_t)(int32_t)result;
+            }
+            break;
+        case INST_SRAIW:
+            if (decoded->rd != 0) {
+                int32_t result = (int32_t)cpu->regs[decoded->rs1] >> decoded->imm;
+                cpu->regs[decoded->rd] = (int64_t)result;
+            }
+            break;
+        case INST_ADDW:
+            if (decoded->rd != 0) {
+                int32_t result = (int32_t)cpu->regs[decoded->rs1] + (int32_t)cpu->regs[decoded->rs2];
+                cpu->regs[decoded->rd] = (int64_t)result;
+            }
+            break;
+        case INST_SUBW:
+            if (decoded->rd != 0) {
+                int32_t result = (int32_t)cpu->regs[decoded->rs1] - (int32_t)cpu->regs[decoded->rs2];
+                cpu->regs[decoded->rd] = (int64_t)result;
+            }
+            break;
+        case INST_SLLW:
+            if (decoded->rd != 0) {
+                int32_t result = (int32_t)cpu->regs[decoded->rs1] << (cpu->regs[decoded->rs2] & 0x1F);
+                cpu->regs[decoded->rd] = (int64_t)result;
+            }
+            break;
+        case INST_SRLW:
+            if (decoded->rd != 0) {
+                uint32_t result = (uint32_t)cpu->regs[decoded->rs1] >> (cpu->regs[decoded->rs2] & 0x1F);
+                cpu->regs[decoded->rd] = (int64_t)(int32_t)result;
+            }
+            break;
+        case INST_SRAW:
+            if (decoded->rd != 0) {
+                int32_t result = (int32_t)cpu->regs[decoded->rs1] >> (cpu->regs[decoded->rs2] & 0x1F);
+                cpu->regs[decoded->rd] = (int64_t)result;
+            }
+            break;
+#endif
         case INST_UNKNOWN:
         default:
             printf("Unknown instruction: 0x%08x\n", instruction);
             break;
     }
 }
+#endif

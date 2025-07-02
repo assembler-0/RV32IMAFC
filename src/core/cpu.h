@@ -6,6 +6,19 @@
 
 #define NUM_REGISTERS 32
 
+// RISC-V Architecture Configuration
+#ifndef XLEN
+#define XLEN 32  // Default to RV32, can be overridden with -DXLEN=64
+#endif
+
+#if XLEN == 64
+typedef uint64_t reg_t;
+typedef int64_t sreg_t;
+#else
+typedef uint32_t reg_t;
+typedef int32_t sreg_t;
+#endif
+
 // RISC-V Opcodes
 #define OPCODE_OP       0x33  // R-type arithmetic
 #define OPCODE_OP_IMM   0x13  // I-type arithmetic
@@ -18,6 +31,8 @@
 #define OPCODE_JALR     0x67
 #define OPCODE_SYSTEM   0x73  // System instructions
 #define OPCODE_AMO      0x2F  // Atomic operations
+#define OPCODE_OP_IMM_32 0x1B // RV64 32-bit immediate operations
+#define OPCODE_OP_32    0x3B  // RV64 32-bit operations
 #define OPCODE_MADD     0x43
 #define OPCODE_MSUB     0x47
 #define OPCODE_NMSUB    0x4B
@@ -34,13 +49,13 @@ typedef enum {
 } privilege_level_t;
 
 typedef struct {
-    uint32_t regs[NUM_REGISTERS]; // General-purpose registers (x0-x31)
+    reg_t regs[NUM_REGISTERS];    // General-purpose registers (x0-x31)
     float fregs[NUM_REGISTERS];   // Single precision FP registers
     double dfregs[NUM_REGISTERS]; // Double precision FP registers
-    uint32_t pc;                  // Program Counter
-    uint32_t csrs[4096];          // CSRs
+    reg_t pc;                     // Program Counter
+    uint32_t csrs[4096];          // CSRs (always 32-bit)
     privilege_level_t privilege;  // Current privilege level
-    uint32_t reserved_address;    // For LR/SC
+    reg_t reserved_address;       // For LR/SC
     int reservation_set;          // For LR/SC
 } cpu_t;
 
@@ -84,6 +99,11 @@ typedef enum {
     INST_DIVU,
     INST_REM,
     INST_REMU,
+    INST_MULW,
+    INST_DIVW,
+    INST_DIVUW,
+    INST_REMW,
+    INST_REMUW,
     INST_SLL,
     INST_SRL,
     INST_SRA,
@@ -151,6 +171,17 @@ typedef enum {
     INST_AMOMAX_W,
     INST_AMOMINU_W,
     INST_AMOMAXU_W,
+    INST_LR_D,
+    INST_SC_D,
+    INST_AMOSWAP_D,
+    INST_AMOADD_D,
+    INST_AMOXOR_D,
+    INST_AMOAND_D,
+    INST_AMOOR_D,
+    INST_AMOMIN_D,
+    INST_AMOMAX_D,
+    INST_AMOMINU_D,
+    INST_AMOMAXU_D,
     //Floating point
     INST_FMADD_S,
     INST_FMSUB_S,
@@ -176,6 +207,12 @@ typedef enum {
     INST_FCVT_S_W,
     INST_FCVT_S_WU,
     INST_FMV_W_X,
+    INST_FCVT_L_D,
+    INST_FCVT_LU_D,
+    INST_FMV_X_D,
+    INST_FCVT_D_L,
+    INST_FCVT_D_LU,
+    INST_FMV_D_X,
     INST_FMADD_D,
     INST_FMSUB_D,
     INST_FNMSUB_D,
@@ -239,6 +276,27 @@ typedef enum {
     INST_C_FSDSP,
     INST_C_SWSP,
     INST_C_FSWSP,
+    INST_C_LD,
+    INST_C_SD,
+    INST_C_ADDIW,
+    INST_C_ADDW,
+    INST_C_SUBW,
+    INST_C_SLLI64,
+    INST_C_SRLI64,
+    INST_C_SRAI64,
+    // RV64I Instructions
+    INST_LWU,
+    INST_LD,
+    INST_SD,
+    INST_ADDIW,
+    INST_SLLIW,
+    INST_SRLIW,
+    INST_SRAIW,
+    INST_ADDW,
+    INST_SUBW,
+    INST_SLLW,
+    INST_SRLW,
+    INST_SRAW,
     //Unknown
     INST_UNKNOWN
 } inst_type_t;

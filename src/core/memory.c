@@ -63,9 +63,26 @@ void memory_write_halfword(memory_t* memory, uint32_t address, uint16_t value) {
     *(uint16_t*)(memory->mem + address) = value;
 }
 void memory_write_word(memory_t* memory, uint32_t address, uint32_t value) {
-    if (address + 1 >= MEMORY_SIZE) {
-        printf("Error: Memory write halfword out of bounds at address 0x%08x\n", address);
+    if (address + 3 >= MEMORY_SIZE) {
+        printf("Error: Memory write word out of bounds at address 0x%08x\n", address);
         return;
     }
     *(uint32_t*)(memory->mem + address) = value;
 }
+
+uint64_t memory_read_doubleword(memory_t* memory, uint32_t address) {
+    if (address + 7 >= MEMORY_SIZE) {
+        printf("Error: Memory read doubleword out of bounds at address 0x%08x\n", address);
+        return 0;
+    }
+    return *(uint64_t*)(memory->mem + address);
+}
+
+void memory_write_doubleword(memory_t* memory, uint32_t address, uint64_t value) {
+    if (address + 7 >= MEMORY_SIZE) {
+        printf("Error: Memory write doubleword out of bounds at address 0x%08x\n", address);
+        return;
+    }
+    *(uint64_t*)(memory->mem + address) = value;
+}
+
