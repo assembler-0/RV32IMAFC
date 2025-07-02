@@ -2,19 +2,6 @@
 
 A complete RISC-V RV32/64GC emulator implementation in C.
 
-## Features
-
-- **RV32I** - Base integer instruction set
-- **RV32M** - Integer multiplication and division
-- **RV32A** - Atomic instructions
-- **RV32F** - Single-precision floating-point
-- **RV32D** - Double-precision floating-point  
-- **RV32C** - Compressed instructions
-- **Zicsr** - Control and status register instructions
-- **Privilege levels** - Machine, Supervisor, User modes
-- **Memory management** - Load/store operations
-- **Exception handling** - ECALL, EBREAK, MRET, SRET
-
 ## Building
 
 ### Using CMake
