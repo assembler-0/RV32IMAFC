@@ -44,7 +44,7 @@ int main() {
     cpu_init(&cpu);
     memory_init(&memory);
 
-    file = fopen("instruction.bin", "r");
+    file = fopen("instruction.hex", "r");
     if (!file) {
         printf("Error: Cannot open instruction.bin\n");
         return 1;

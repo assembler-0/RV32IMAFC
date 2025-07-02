@@ -1,5 +1,5 @@
 CC = ccache clang
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -Wall -Wextra -g -DXLEN=64
 
 SRC = $(wildcard src/*.c src/core/*.c)
 OBJ = $(SRC:.c=.o)

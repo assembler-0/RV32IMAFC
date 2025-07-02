@@ -88,16 +88,28 @@ void decode_instruction(uint32_t instruction, instruction_t* decoded_inst) {
         
         case OPCODE_OP_IMM: {
             uint32_t funct3 = (instruction >> 12) & 0x7;
-            uint32_t funct7 = (instruction >> 25) & 0x7f;
-            entry = op_imm_table[funct7][funct3];
+            uint32_t imm_field = (instruction >> 20);
+            
+            uint32_t effective_funct7 = 0x00;
+            if (funct3 == 0x1 || funct3 == 0x5) { // SLLI, SRLI, SRAI
+                effective_funct7 = (instruction >> 25) & 0x7f;
+            }
+            
+            entry = op_imm_table[effective_funct7][funct3];
             
             if (entry.has_imm_override) {
                 // Special shamt handling for shifts
 #if XLEN == 64
-                decoded_inst->imm = (instruction >> 20) & 0x3f;
+                decoded_inst->imm = imm_field & 0x3f;
 #else
-                decoded_inst->imm = (instruction >> 20) & 0x1f;
+                decoded_inst->imm = imm_field & 0x1f;
 #endif
+            } else {
+                int32_t imm = (instruction >> 20);
+                if (imm & 0x800) { // Check if the 11th bit is set (sign bit)
+                    imm |= 0xFFFFF000; // Sign extend
+                }
+                decoded_inst->imm = imm;
             }
             decoded_inst->inst_type = entry.inst_type;
             return;
